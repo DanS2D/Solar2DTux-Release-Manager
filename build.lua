@@ -138,7 +138,7 @@ local function modifyPreprocessor(projectName, preprocessorName, origValue, newV
 		local position = currentLine:find(preprocessorName)
 		
 		if (position ~= nil) then
-			currentLine = currentLine:sub(1, position + preprocessorName:len() - 1) .. newValue .. currentLine:sub(position + preprocessorName:len() + origValue:len())
+			currentLine = string.format("%s%s%s", currentLine:sub(1, position + preprocessorName:len() - 1), newValue, currentLine:sub(position + preprocessorName:len() + origValue:len()))
 		end
 
 		fileLines[#fileLines + 1] = currentLine
@@ -215,6 +215,5 @@ modifyPreprocessor("Solar2DSimulator", "Rtt_LOCAL_BUILD_REVISION=", "9999", vers
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_YEAR=", "2100", currentDate.year)
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
-modifyPreprocessor()
 
 -- edit preprocessors
