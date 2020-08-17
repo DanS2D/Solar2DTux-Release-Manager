@@ -33,6 +33,12 @@ local buildDateKey = "date"
 local buildAuthorKey = "author"
 local buildConfFilePath = "data/build.conf"
 local date = os.date("*t")
+local currentDate = 
+{
+	day = nil,
+	month = nil,
+	year = nil,
+}
 local helpMessage = [[
 Welcome to the Solar2DBuilder!
 Required flags:
@@ -42,6 +48,7 @@ Required flags:
 ]]
 local hasRequestedHelp = false
 local buildData, errorString = io.open(buildConfFilePath, "r")
+
 
 -- parse the args
 for i = 1, #arg do
@@ -113,11 +120,39 @@ local function parseArg(value, delimiter)
 end
 
 -- generates a makefile for the specified project
-local function generateMakefile(projectName)
+local function generateMakefile(projectName, configuration)
 	local verbose = true
-	print(("Generating makefile for: %s"):format(projectName))
-	os.execute(('codelite-make -w %s/Solar2DTux.workspace -p %s -d clean -c Release -e %s'):format(buildArgs.path, projectName, verbose and "-v" or ""))
+	local config = configuration ~= nil and configuration or "Release"
+	print(("Generating makefile for: %s - with configuration: %s"):format(projectName, config))
+	os.execute(('codelite-make -w %s/Solar2DTux.workspace -p %s -d clean -c %s -e %s'):format(buildArgs.path, projectName, config, verbose and "-v" or ""))
 	print("-----------------------------------------------------------------------")
+end
+
+-- modify a preprocessor
+local function modifyPreprocessor(projectName, preprocessorName, origValue, newValue)
+	local makefilePath = ("%s/%s.mk"):format(buildArgs.path, projectName)
+	local fileLines = {}
+
+	for line in io.lines(makefilePath) do
+		local currentLine = line
+		local position = currentLine:find(preprocessorName)
+		
+		if (position ~= nil) then
+			currentLine = currentLine:sub(1, position + preprocessorName:len() - 1) .. newValue .. currentLine:sub(position + preprocessorName:len() + origValue:len())
+		end
+
+		fileLines[#fileLines + 1] = currentLine
+	end
+
+	-- open the makefile
+	local makefile = io.open(makefilePath, "w")
+
+	-- overwrite the old makefile with our new values
+	for i = 1, #fileLines do
+		makefile:write(fileLines[i] .. "\n")
+	end
+
+	makefile:close()
 end
 
 if (buildData) then
@@ -140,10 +175,13 @@ if (buildData) then
 	version.major = tonumber(buildVer[1])
 	version.minor = tonumber(buildVer[2])
 	version.revision = tonumber(buildVer[3])
+	currentDate.year = buildDat[1]
+	currentDate.month = buildDat[2]
+	currentDate.day = buildDat[3]
 
 	print(("build version: %d.%d.%d"):format(version.major, version.minor, version.revision))
 	print(("build author: %s"):format(buildAuthor))
-	print(("build date: %d/%d/%d"):format(buildDat[1], buildDat[2], buildDat[3]))
+	print(("build date: %d/%d/%d"):format(currentDate.year, currentDate.month, currentDate.day))
 else
 	buildData = io.open(buildConfFilePath, "w")
 
@@ -156,9 +194,27 @@ else
 	buildData:close()
 end
 
--- generate makefiles for each project
-generateMakefile("car")
-generateMakefile("Solar2DBuilder")
-generateMakefile("Solar2DTuxConsole")
-generateMakefile("Solar2DSimulator")
+-- build car
+--generateMakefile("car")
 
+-- build Solar2DBuilder
+--generateMakefile("Solar2DBuilder")
+
+-- build Solar2DConsole
+--generateMakefile("Solar2DTuxConsole")
+
+-- build Solar2DSimulator
+--generateMakefile("Solar2DSimulator")
+
+-- build x64 Template
+generateMakefile("Solar2DSimulator", "x64Template")
+modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MAJOR=", "3", version.major)
+modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MINOR=", "0", version.minor)
+modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_REVISION=", "0", version.revision)
+modifyPreprocessor("Solar2DSimulator", "Rtt_LOCAL_BUILD_REVISION=", "9999", version.revision)
+modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_YEAR=", "2100", currentDate.year)
+modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
+modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
+modifyPreprocessor()
+
+-- edit preprocessors
