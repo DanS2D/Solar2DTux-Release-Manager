@@ -6,9 +6,10 @@ local version =
 }
 local buildFlags = 
 {
-	help = "-help",
-	build = "-build",
-	author = "-author",
+	help = "--help",
+	build = "--build",
+	author = "--author",
+	projectPath = "--path",
 	incrementMajor = "--increment-major",
 	incrementMinor = "--increment-minor",
 	incrementRevision = "--increment-revision",
@@ -17,11 +18,13 @@ local buildArgs =
 {
 	build = nil,
 	author = nil,
+	path = nil,
 }
 local requiredBuildFlags = 
 {
 	buildFlags.build,
 	buildFlags.author,
+	buildFlags.projectPath,
 }
 local buildFlagsValid = true
 local requiredBuildFlagsFound = 0
@@ -33,8 +36,9 @@ local date = os.date("*t")
 local helpMessage = [[
 Welcome to the Solar2DBuilder!
 Required flags:
-  -build
-  -author "author name"
+  --build
+  --author "author name"
+  --path - path to the projects workspace folder
 ]]
 local hasRequestedHelp = false
 local buildData, errorString = io.open(buildConfFilePath, "r")
@@ -56,6 +60,8 @@ for i = 1, #arg do
 	if (i + 1 <= #arg) then
 		if (arg[i] == buildFlags.author) then
 			buildArgs.author = arg[i + 1]
+		elseif (arg[i] == buildFlags.projectPath) then
+			buildArgs.path = arg[i + 1]
 		end
 	end
 
@@ -64,7 +70,8 @@ end
 
 local numArgsValid = (requiredBuildFlagsFound == #requiredBuildFlags)
 local authorValid = (buildArgs.author ~= nil)
-buildFlagsValid = numArgsValid and authorValid
+local pathValid = (buildFlags.projectPath ~= nil)
+buildFlagsValid = numArgsValid and authorValid and pathValid
 
 if (hasRequestedHelp) then
 	return
@@ -80,7 +87,11 @@ if (not buildFlagsValid) then
 	if (not authorValid) then
 		errorMessage = ("Error: author name not provided.")
 	end
-	
+
+	if (not pathValid) then
+		errorMessage = ("Error: path not provided")
+	end
+
 	print(errorMessage)
 	return
 end
@@ -99,6 +110,14 @@ local function parseArg(value, delimiter)
 	end
 
 	return values
+end
+
+-- generates a makefile for the specified project
+local function generateMakefile(projectName)
+	local verbose = true
+	print(("Generating makefile for: %s"):format(projectName))
+	os.execute(('codelite-make -w %s/Solar2DTux.workspace -p %s -d clean -c Release -e %s'):format(buildArgs.path, projectName, verbose and "-v" or ""))
+	print("-----------------------------------------------------------------------")
 end
 
 if (buildData) then
@@ -136,3 +155,10 @@ else
 	buildData:write(buildAuthor)
 	buildData:close()
 end
+
+-- generate makefiles for each project
+generateMakefile("car")
+generateMakefile("Solar2DBuilder")
+generateMakefile("Solar2DTuxConsole")
+generateMakefile("Solar2DSimulator")
+
