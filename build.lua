@@ -194,6 +194,9 @@ else
 	buildData:close()
 end
 
+-- start setting up the builders
+local buildCommand = nil
+
 -- build car
 --generateMakefile("car")
 
@@ -206,7 +209,7 @@ end
 -- build Solar2DSimulator
 --generateMakefile("Solar2DSimulator")
 
--- build x64 Template
+-- #### build x64 Template #### --
 generateMakefile("Solar2DSimulator", "x64Template")
 modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MAJOR=", "3", version.major)
 modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MINOR=", "0", version.minor)
@@ -215,5 +218,14 @@ modifyPreprocessor("Solar2DSimulator", "Rtt_LOCAL_BUILD_REVISION=", "9999", vers
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_YEAR=", "2100", currentDate.year)
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
-
--- edit preprocessors
+-- build
+buildCommand = ("cd %s && make -j8 -e -f %s clean"):format(buildArgs.path, "Solar2DSimulator.mk")
+os.execute(buildCommand)
+buildCommand = ("cd %s && make -j8 -e -f %s"):format(buildArgs.path, "Solar2DSimulator.mk")
+os.execute(buildCommand)
+-- post build
+buildCommand = ("cd %s/build-%s/bin/ && tar -czf template_x64.tgz Solar2DSimulator && mv template_x64.tgz ../../Solar2DSimulator/Resources/"):format(buildArgs.path, "x64Template")
+os.execute(buildCommand)
+-- cleanup
+buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "x64Template")
+os.execute(buildCommand)
