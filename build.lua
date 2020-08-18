@@ -231,7 +231,7 @@ local changeDir = ("cd %s/Solar2DSimulator"):format(buildArgs.path)
 -- build the projects
 if (buildArgs.build) then
 	-- pull the latest changes
-	buildCommand = ("cd %s && git fetch && git pull"):format(buildArgs.path)
+	buildCommand = ("cd %s && git fetch && git reset --hard origin/master && git pull"):format(buildArgs.path)
 	os.execute(buildCommand)
 
 	-- #### build car #### --
