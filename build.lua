@@ -8,6 +8,7 @@ local buildFlags =
 {
 	help = "--help",
 	build = "--build",
+	release = "--release",
 	author = "--author",
 	projectPath = "--path",
 	incrementMajor = "--increment-major",
@@ -16,13 +17,16 @@ local buildFlags =
 }
 local buildArgs = 
 {
-	build = nil,
+	build = false,
+	release = false,
 	author = nil,
 	path = nil,
+	incrementMajor = false,
+	incrementMinor = false,
+	incrementRevision = false,
 }
 local requiredBuildFlags = 
 {
-	buildFlags.build,
 	buildFlags.author,
 	buildFlags.projectPath,
 }
@@ -68,6 +72,16 @@ for i = 1, #arg do
 			buildArgs.author = arg[i + 1]
 		elseif (arg[i] == buildFlags.projectPath) then
 			buildArgs.path = arg[i + 1]
+		elseif (arg[i] == buildFlags.build) then
+			buildArgs.build = true
+		elseif (arg[i] == buildFlags.release) then
+			buildArgs.release = true
+		elseif (arg[i] == buildFlags.incrementMajor) then
+			buildArgs.incrementMajor = true
+		elseif (arg[i] == buildFlags.incrementMinor) then
+			buildArgs.incrementMinor = true
+		elseif (arg[i] == buildFlags.incrementRevision) then
+			buildArgs.incrementMinor = true
 		end
 	end
 
@@ -77,7 +91,7 @@ end
 local numArgsValid = (requiredBuildFlagsFound == #requiredBuildFlags)
 local authorValid = (buildArgs.author ~= nil)
 local pathValid = (buildFlags.projectPath ~= nil)
-buildFlagsValid = numArgsValid and authorValid and pathValid
+buildFlagsValid = numArgsValid and authorValid and pathValid and (buildArgs.build or buildArgs.release)
 
 if (hasRequestedHelp) then
 	return
@@ -96,6 +110,10 @@ if (not buildFlagsValid) then
 
 	if (not pathValid) then
 		errorMessage = ("Error: path not provided")
+	end
+
+	if (not buildArgs.build and not buildArgs.release) then
+		errorMessage = ("Error: you have to specify either --build or --release at a minimum, or both depending on your intent.")
 	end
 
 	print(errorMessage)
@@ -154,6 +172,7 @@ local function modifyPreprocessor(projectName, preprocessorName, origValue, newV
 	makefile:close()
 end
 
+-- setup build details
 if (buildData) then
 	local buildVersion = nil
 	local buildAuthor = nil
@@ -178,6 +197,18 @@ if (buildData) then
 	currentDate.month = buildDat[2]
 	currentDate.day = buildDat[3]
 
+	if (buildArgs.incrementMajor) then
+		version.major = version.major + 1
+	end
+	
+	if (buildArgs.incrementMinor) then
+		version.minor = version.minor + 1
+	end
+
+	if (buildArgs.incrementRevision) then
+		version.revision = version.revision + 1
+	end
+
 	print(("build version: %d.%d.%d"):format(version.major, version.minor, version.revision))
 	print(("build author: %s"):format(buildAuthor))
 	print(("build date: %d/%d/%d"):format(currentDate.year, currentDate.month, currentDate.day))
@@ -185,123 +216,151 @@ else
 	buildData = io.open(buildConfFilePath, "w")
 
 	local buildVersionDefault = ("%s=%d.%d.%d\n"):format(buildVersionKey, version.major, version.minor, version.revision)
-	local buildDate = ("%s=%d.%d.%d\n"):format(buildDateKey, date.year, date.month, date.day)
+	local buildDate = ("%s=%d.%d.%d\n"):format(buildDateKey, "2020", "05", "01")
 	local buildAuthor = ("%s=%s\n"):format(buildAuthorKey, buildArgs.author)
 	buildData:write(buildVersionDefault)
 	buildData:write(buildDate)
 	buildData:write(buildAuthor)
-	buildData:close()
 end
 
 -- start setting up the builders
 local buildCommand = nil
 local makeCommand = "make -j8 -e -f"
---[[
--- #### build car #### --
-generateMakefile("car")
--- build
-buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "car.mk")
-os.execute(buildCommand)
--- post build
-buildCommand = ("cd %s/build-%s/bin/ && mv car ../../Solar2DSimulator/Resources/"):format(buildArgs.path, "Release")
-os.execute(buildCommand)
--- cleanup
-buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
-os.execute(buildCommand)
-
--- #### build Solar2DBuilder #### --
-generateMakefile("Solar2DBuilder")
--- build
-buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DBuilder.mk")
-os.execute(buildCommand)
-buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DBuilder.mk")
-os.execute(buildCommand)
--- post build
-buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DConsole ../../Solar2DSimulator/"):format(buildArgs.path, "Release")
-os.execute(buildCommand)
--- cleanup
-buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
-os.execute(buildCommand)
-
--- #### build Solar2DConsole #### --
-generateMakefile("Solar2DConsole")
--- build
-buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DConsole.mk")
-os.execute(buildCommand)
-buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DConsole.mk")
-os.execute(buildCommand)
--- post build
-buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DConsole ../../Solar2DSimulator/"):format(buildArgs.path, "Solar2DConsole")
-os.execute(buildCommand)
--- cleanup
-buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Solar2DConsole")
-os.execute(buildCommand)
-
--- #### build Solar2DSimulator #### --
-generateMakefile("Solar2DSimulator")
--- build
-buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
-os.execute(buildCommand)
-buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
-os.execute(buildCommand)
--- post build
-buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DSimulator ../../Solar2DSimulator/"):format(buildArgs.path, "Release")
-os.execute(buildCommand)
--- cleanup
-buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
-os.execute(buildCommand)
-
--- #### build x64 Template #### --
-generateMakefile("Solar2DSimulator", "x64Template")
-modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MAJOR=", "3", version.major)
-modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MINOR=", "0", version.minor)
-modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_REVISION=", "0", version.revision)
-modifyPreprocessor("Solar2DSimulator", "Rtt_LOCAL_BUILD_REVISION=", "9999", version.revision)
-modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_YEAR=", "2100", currentDate.year)
-modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
-modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
--- build
-buildCommand = ("cd %s && %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
-os.execute(buildCommand)
-buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
-os.execute(buildCommand)
--- post build
-buildCommand = ("cd %s/build-%s/bin/ && tar -czf template_x64.tgz Solar2DSimulator && mv template_x64.tgz ../../Solar2DSimulator/Resources/"):format(buildArgs.path, "x64Template")
-os.execute(buildCommand)
--- cleanup
-buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "x64Template")
-os.execute(buildCommand)
---]]
--- #### setup distribution archive #### --
-
 local changeDir = ("cd %s/Solar2DSimulator"):format(buildArgs.path)
-local releaseFiles = 
-{
-	{file = "Solar2DSimulator"},
-	{file = "Solar2DConsole"},
-	{file = "install.sh"},
-	{file = "start.sh"},
-	{file = "Resources", isDirectory = true}
-}
--- remove the release directory
-os.execute(("%s && rm -rf Solar2DTux"):format(changeDir))
--- remove the release file
-os.execute(("%s && rm -rf Solar2DTux_*.tgz"):format(changeDir))
--- make a directory to house the release files
-os.execute(("%s && mkdir Solar2DTux"):format(changeDir))
--- copy the required files into the release directory
-for i = 1, #releaseFiles do
-	os.execute(("%s && cp %s %s Solar2DTux"):format(changeDir, releaseFiles[i].isDirectory and "-R" or "", releaseFiles[i].file))
+--[[
+
+if (buildArgs.build) then
+	-- #### build car #### --
+	generateMakefile("car")
+	-- build
+	buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "car.mk")
+	os.execute(buildCommand)
+	-- post build
+	buildCommand = ("cd %s/build-%s/bin/ && mv car ../../Solar2DSimulator/Resources/"):format(buildArgs.path, "Release")
+	os.execute(buildCommand)
+	-- cleanup
+	buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
+	os.execute(buildCommand)
+
+	-- #### build Solar2DBuilder #### --
+	generateMakefile("Solar2DBuilder")
+	-- build
+	buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DBuilder.mk")
+	os.execute(buildCommand)
+	buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DBuilder.mk")
+	os.execute(buildCommand)
+	-- post build
+	buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DBuilder ../../Solar2DSimulator/"):format(buildArgs.path, "Release")
+	os.execute(buildCommand)
+	-- cleanup
+	buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
+	os.execute(buildCommand)
+
+	-- #### build Solar2DConsole #### --
+	generateMakefile("Solar2DConsole")
+	-- build
+	buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DConsole.mk")
+	os.execute(buildCommand)
+	buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DConsole.mk")
+	os.execute(buildCommand)
+	-- post build
+	buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DConsole ../../Solar2DSimulator/"):format(buildArgs.path, "Solar2DConsole")
+	os.execute(buildCommand)
+	-- cleanup
+	buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Solar2DConsole")
+	os.execute(buildCommand)
+
+	-- #### build Solar2DSimulator #### --
+	generateMakefile("Solar2DSimulator")
+	-- build
+	buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
+	os.execute(buildCommand)
+	buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
+	os.execute(buildCommand)
+	-- post build
+	buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DSimulator ../../Solar2DSimulator/"):format(buildArgs.path, "Release")
+	os.execute(buildCommand)
+	-- cleanup
+	buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
+	os.execute(buildCommand)
+
+	-- #### build x64 Template #### --
+	generateMakefile("Solar2DSimulator", "x64Template")
+	modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MAJOR=", "3", version.major)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MINOR=", "0", version.minor)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_REVISION=", "0", version.revision)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_LOCAL_BUILD_REVISION=", "9999", version.revision)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_YEAR=", "2100", currentDate.year)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
+	-- build
+	buildCommand = ("cd %s && %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
+	os.execute(buildCommand)
+	buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
+	os.execute(buildCommand)
+	-- post build
+	buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DSimulator template_x64"):format(buildArgs.path, "x64Template")
+	os.execute(buildCommand)
+	buildCommand = ("cd %s/build-%s/bin/ && tar -czf template_x64.tgz template_x64 && mv template_x64.tgz ../../Solar2DSimulator/Resources/"):format(buildArgs.path, "x64Template")
+	os.execute(buildCommand)
+	-- cleanup
+	buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "x64Template")
+	os.execute(buildCommand)
+
+	--]]
+	-- #### setup distribution archive #### --
+	--[[
+	local releaseFiles = 
+	{
+		{file = "Solar2DSimulator"},
+		{file = "Solar2DConsole"},
+		{file = "install.sh"},
+		{file = "start.sh"},
+		{file = "Resources", isDirectory = true}
+	}
+	-- remove the release directory
+	os.execute(("%s && rm -rf Solar2DTux"):format(changeDir))
+	-- remove the release file
+	os.execute(("%s && rm -rf Solar2DTux_*.tgz"):format(changeDir))
+	-- make a directory to house the release files
+	os.execute(("%s && mkdir Solar2DTux"):format(changeDir))
+	-- copy the required files into the release directory
+	for i = 1, #releaseFiles do
+		os.execute(("%s && cp %s %s Solar2DTux"):format(changeDir, releaseFiles[i].isDirectory and "-R" or "", releaseFiles[i].file))
+	end
+	-- tar gz up the release directory, suffixed with the release number
+	os.execute(("%s && tar -czf Solar2DTux_%s.%s.%s.tgz Solar2DTux"):format(changeDir, version.major, version.minor, version.revision))
+	-- remove the release directory
+	os.execute(("%s && rm -rf Solar2DTux"):format(changeDir))
+	-- all done!
+	print(("Completed building Solar2DTux version %s.%s.%s for release!"):format(version.major, version.minor, version.revision))
 end
--- tar gz up the release directory, suffixed with the release number
-os.execute(("%s && tar -czf Solar2DTux_%s.%s.%s.tgz Solar2DTux"):format(changeDir, version.major, version.minor, version.revision))
--- remove the release directory
-os.execute(("%s && rm -rf Solar2DTux"):format(changeDir))
--- all done!
-print(("Completed building Solar2DTux version %s.%s.%s for release!"):format(version.major, version.minor, version.revision))
+
 -- now push the release to GitHub
-os.execute(("%s && git tag v0.1"):format(changeDir))
-os.execute(("%s && git push"):format(changeDir))
-os.execute(("%s && git push --tags"):format(changeDir))
-os.execute(('%s && ./github-release release --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --description "test test test"'):format(changeDir))
-os.execute(('%s && ./github-release upload --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --name "v1.0.0" --file Solar2DTux_1.0.0.tgz'):format(changeDir))
+if (buildArgs.release) then
+	-- generate a changelog between the last release and this one
+	os.execute(("git log --format=%B --since=%s --author="Danny Glover|Rob Craig" --no-merges --all > %s/Solar2DSimulator/changelog.txt"):format("2020-06-01", buildArgs.path))
+	-- create and push tags
+	os.execute(("%s && git tag v0.1"):format(changeDir))
+	os.execute(("%s && git push"):format(changeDir))
+	os.execute(("%s && git push --tags"):format(changeDir))
+	-- create the release
+	os.execute(('%s && ./github-release release --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --description "test test test"'):format(changeDir))
+	-- upload the release artifact
+	os.execute(('%s && ./github-release upload --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --name "v1.0.0" --file Solar2DTux_1.0.0.tgz'):format(changeDir))
+	-- remove the release file
+	os.execute(("%s && rm Solar2DTux_%s.%s.%s.tgz"):format(changeDir, version.major, version.minor, version.revision))
+	-- remove the changelog
+	os.execute(("%s && rm changelog.txt"):format(changeDir)))
+	-- update the details
+	local buildVersion = ("%s=%d.%d.%d\n"):format(buildVersionKey, version.major, version.minor, version.revision)
+	local buildDate = ("%s=%d.%d.%d\n"):format(buildDateKey, currentDate.year, currentDate.month, currentDate.day)
+	local buildAuthor = ("%s=%s\n"):format(buildAuthorKey, buildArgs.author)
+	buildData:write(buildVersion)
+	buildData:write(buildDate)
+	buildData:write(buildAuthor)
+	buildDate:close()
+	-- release submitted
+	print(("Completed pushing Solar2DTux version %s.%s.%s to GitHub!"):format(version.major, version.minor, version.revision))
+end
+--]]
