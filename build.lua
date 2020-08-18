@@ -49,7 +49,6 @@ Required flags:
 local hasRequestedHelp = false
 local buildData, errorString = io.open(buildConfFilePath, "r")
 
-
 -- parse the args
 for i = 1, #arg do
 	if (arg[i] == buildFlags.help) then
@@ -197,7 +196,7 @@ end
 -- start setting up the builders
 local buildCommand = nil
 local makeCommand = "make -j8 -e -f"
-
+--[[
 -- #### build car #### --
 generateMakefile("car")
 -- build
@@ -272,5 +271,37 @@ os.execute(buildCommand)
 -- cleanup
 buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "x64Template")
 os.execute(buildCommand)
-
+--]]
 -- #### setup distribution archive #### --
+
+local changeDir = ("cd %s/Solar2DSimulator"):format(buildArgs.path)
+local releaseFiles = 
+{
+	{file = "Solar2DSimulator"},
+	{file = "Solar2DConsole"},
+	{file = "install.sh"},
+	{file = "start.sh"},
+	{file = "Resources", isDirectory = true}
+}
+-- remove the release directory
+os.execute(("%s && rm -rf Solar2DTux"):format(changeDir))
+-- remove the release file
+os.execute(("%s && rm -rf Solar2DTux_*.tgz"):format(changeDir))
+-- make a directory to house the release files
+os.execute(("%s && mkdir Solar2DTux"):format(changeDir))
+-- copy the required files into the release directory
+for i = 1, #releaseFiles do
+	os.execute(("%s && cp %s %s Solar2DTux"):format(changeDir, releaseFiles[i].isDirectory and "-R" or "", releaseFiles[i].file))
+end
+-- tar gz up the release directory, suffixed with the release number
+os.execute(("%s && tar -czf Solar2DTux_%s.%s.%s.tgz Solar2DTux"):format(changeDir, version.major, version.minor, version.revision))
+-- remove the release directory
+os.execute(("%s && rm -rf Solar2DTux"):format(changeDir))
+-- all done!
+print(("Completed building Solar2DTux version %s.%s.%s for release!"):format(version.major, version.minor, version.revision))
+-- now push the release to GitHub
+os.execute(("%s && git tag v0.1"):format(changeDir))
+os.execute(("%s && git push"):format(changeDir))
+os.execute(("%s && git push --tags"):format(changeDir))
+os.execute(('%s && ./github-release release --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --description "test test test"'):format(changeDir))
+os.execute(('%s && ./github-release upload --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --name "v1.0.0" --file Solar2DTux_1.0.0.tgz'):format(changeDir))
