@@ -227,8 +227,8 @@ end
 local buildCommand = nil
 local makeCommand = "make -j8 -e -f"
 local changeDir = ("cd %s/Solar2DSimulator"):format(buildArgs.path)
---[[
 
+-- build the projects
 if (buildArgs.build) then
 	-- #### build car #### --
 	generateMakefile("car")
@@ -264,7 +264,7 @@ if (buildArgs.build) then
 	buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DConsole.mk")
 	os.execute(buildCommand)
 	-- post build
-	buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DConsole ../../Solar2DSimulator/"):format(buildArgs.path, "Solar2DConsole")
+	buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DConsole ../../Solar2DSimulator/"):format(buildArgs.path, "Release")
 	os.execute(buildCommand)
 	-- cleanup
 	buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Solar2DConsole")
@@ -272,6 +272,13 @@ if (buildArgs.build) then
 
 	-- #### build Solar2DSimulator #### --
 	generateMakefile("Solar2DSimulator")
+	modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MAJOR=", "3", version.major)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_MINOR=", "0", version.minor)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_VERSION_REVISION=", "0", version.revision)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_LOCAL_BUILD_REVISION=", "9999", version.revision)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_YEAR=", "2100", currentDate.year)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
+	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
 	-- build
 	buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
 	os.execute(buildCommand)
@@ -294,7 +301,7 @@ if (buildArgs.build) then
 	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
 	modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
 	-- build
-	buildCommand = ("cd %s && %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
+	buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
 	os.execute(buildCommand)
 	buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
 	os.execute(buildCommand)
@@ -307,13 +314,12 @@ if (buildArgs.build) then
 	buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "x64Template")
 	os.execute(buildCommand)
 
-	--]]
 	-- #### setup distribution archive #### --
-	--[[
 	local releaseFiles = 
 	{
 		{file = "Solar2DSimulator"},
 		{file = "Solar2DConsole"},
+		{file = "Solar2DBuilder"},
 		{file = "install.sh"},
 		{file = "start.sh"},
 		{file = "Resources", isDirectory = true}
@@ -339,28 +345,31 @@ end
 -- now push the release to GitHub
 if (buildArgs.release) then
 	-- generate a changelog between the last release and this one
-	os.execute(("git log --format=%B --since=%s --author="Danny Glover|Rob Craig" --no-merges --all > %s/Solar2DSimulator/changelog.txt"):format("2020-06-01", buildArgs.path))
+	os.execute(('%s'):format(changeDir) .. (' && git log --format=%B') .. (' --since="%s" --author="Danny Glover|Rob Craig" --no-merges --all > %s/Solar2DSimulator/changelog.txt'):format(("%s-%s-%s"):format(currentDate.year, currentDate.month, currentDate.day), buildArgs.path))
+	-- open & read the changelog
+	local changelog = io.open(buildArgs.path .. "/Solar2DSimulator/changelog.txt", "r"):read("*a")
+	changelog = string.gsub(changelog, "[\"`]", "\\%1")
+
 	-- create and push tags
-	os.execute(("%s && git tag v0.1"):format(changeDir))
-	os.execute(("%s && git push"):format(changeDir))
+	os.execute(("%s && git tag v%s.%s.%s"):format(changeDir, version.major, version.minor, version.revision))
 	os.execute(("%s && git push --tags"):format(changeDir))
 	-- create the release
-	os.execute(('%s && ./github-release release --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --description "test test test"'):format(changeDir))
+	os.execute(('%s && ./github-release release --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v%s.%s.%s --description "%s"'):format(changeDir, version.major, version.minor, version.revision, changelog))
 	-- upload the release artifact
-	os.execute(('%s && ./github-release upload --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v0.1 --name "v1.0.0" --file Solar2DTux_1.0.0.tgz'):format(changeDir))
+	os.execute(('%s && ./github-release upload --security-token 9bab8a57e7d386d9e826453c6e3c5a150b4da02d --user DannyGlover --repo Solar2DTux --tag v%s.%s.%s --name "Solar2DTux-v%s.%s.%s.tgz" --file Solar2DTux_%s.%s.%s.tgz'):format(changeDir, version.major, version.minor, version.revision, version.major, version.minor, version.revision, version.major, version.minor, version.revision))
 	-- remove the release file
 	os.execute(("%s && rm Solar2DTux_%s.%s.%s.tgz"):format(changeDir, version.major, version.minor, version.revision))
 	-- remove the changelog
-	os.execute(("%s && rm changelog.txt"):format(changeDir)))
+	os.execute(("%s && rm changelog.txt"):format(changeDir))
 	-- update the details
 	local buildVersion = ("%s=%d.%d.%d\n"):format(buildVersionKey, version.major, version.minor, version.revision)
-	local buildDate = ("%s=%d.%d.%d\n"):format(buildDateKey, currentDate.year, currentDate.month, currentDate.day)
+	local buildDate = ("%s=%d.%d.%d\n"):format(buildDateKey, date.year, date.month, date.day)
 	local buildAuthor = ("%s=%s\n"):format(buildAuthorKey, buildArgs.author)
+	buildData = io.open(buildConfFilePath, "w")
 	buildData:write(buildVersion)
 	buildData:write(buildDate)
 	buildData:write(buildAuthor)
-	buildDate:close()
+	buildData:close()
 	-- release submitted
 	print(("Completed pushing Solar2DTux version %s.%s.%s to GitHub!"):format(version.major, version.minor, version.revision))
 end
---]]
