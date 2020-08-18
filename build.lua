@@ -196,18 +196,61 @@ end
 
 -- start setting up the builders
 local buildCommand = nil
+local makeCommand = "make -j8 -e -f"
 
--- build car
---generateMakefile("car")
+-- #### build car #### --
+generateMakefile("car")
+-- build
+buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "car.mk")
+os.execute(buildCommand)
+-- post build
+buildCommand = ("cd %s/build-%s/bin/ && mv car ../../Solar2DSimulator/Resources/"):format(buildArgs.path, "Release")
+os.execute(buildCommand)
+-- cleanup
+buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
+os.execute(buildCommand)
 
--- build Solar2DBuilder
---generateMakefile("Solar2DBuilder")
+-- #### build Solar2DBuilder #### --
+generateMakefile("Solar2DBuilder")
+-- build
+buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DBuilder.mk")
+os.execute(buildCommand)
+buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DBuilder.mk")
+os.execute(buildCommand)
+-- post build
+buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DConsole ../../Solar2DSimulator/"):format(buildArgs.path, "Release")
+os.execute(buildCommand)
+-- cleanup
+buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
+os.execute(buildCommand)
 
--- build Solar2DConsole
---generateMakefile("Solar2DTuxConsole")
+-- #### build Solar2DConsole #### --
+generateMakefile("Solar2DConsole")
+-- build
+buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DConsole.mk")
+os.execute(buildCommand)
+buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DConsole.mk")
+os.execute(buildCommand)
+-- post build
+buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DConsole ../../Solar2DSimulator/"):format(buildArgs.path, "Solar2DConsole")
+os.execute(buildCommand)
+-- cleanup
+buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Solar2DConsole")
+os.execute(buildCommand)
 
--- build Solar2DSimulator
---generateMakefile("Solar2DSimulator")
+-- #### build Solar2DSimulator #### --
+generateMakefile("Solar2DSimulator")
+-- build
+buildCommand = ("cd %s && %s %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
+os.execute(buildCommand)
+buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
+os.execute(buildCommand)
+-- post build
+buildCommand = ("cd %s/build-%s/bin/ && mv Solar2DSimulator ../../Solar2DSimulator/"):format(buildArgs.path, "Release")
+os.execute(buildCommand)
+-- cleanup
+buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "Release")
+os.execute(buildCommand)
 
 -- #### build x64 Template #### --
 generateMakefile("Solar2DSimulator", "x64Template")
@@ -219,9 +262,9 @@ modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_YEAR=", "2100", currentDate.ye
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_MONTH=", "1", currentDate.month)
 modifyPreprocessor("Solar2DSimulator", "Rtt_BUILD_DAY=", "1", currentDate.day)
 -- build
-buildCommand = ("cd %s && make -j8 -e -f %s clean"):format(buildArgs.path, "Solar2DSimulator.mk")
+buildCommand = ("cd %s && %s clean"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
 os.execute(buildCommand)
-buildCommand = ("cd %s && make -j8 -e -f %s"):format(buildArgs.path, "Solar2DSimulator.mk")
+buildCommand = ("cd %s && %s %s"):format(buildArgs.path, makeCommand, "Solar2DSimulator.mk")
 os.execute(buildCommand)
 -- post build
 buildCommand = ("cd %s/build-%s/bin/ && tar -czf template_x64.tgz Solar2DSimulator && mv template_x64.tgz ../../Solar2DSimulator/Resources/"):format(buildArgs.path, "x64Template")
@@ -229,3 +272,5 @@ os.execute(buildCommand)
 -- cleanup
 buildCommand = ("cd %s && rm -rf build-%s"):format(buildArgs.path, "x64Template")
 os.execute(buildCommand)
+
+-- #### setup distribution archive #### --
