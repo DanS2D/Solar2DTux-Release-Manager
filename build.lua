@@ -14,6 +14,7 @@ local buildFlags =
 	incrementMajor = "--increment-major",
 	incrementMinor = "--increment-minor",
 	incrementRevision = "--increment-revision",
+	useDevBranch = "--use-dev-branch",
 }
 local buildArgs = 
 {
@@ -24,6 +25,7 @@ local buildArgs =
 	incrementMajor = false,
 	incrementMinor = false,
 	incrementRevision = false,
+	useDevBranch = false,
 }
 local requiredBuildFlags = 
 {
@@ -82,6 +84,8 @@ for i = 1, #arg do
 			buildArgs.incrementMinor = true
 		elseif (arg[i] == buildFlags.incrementRevision) then
 			buildArgs.incrementMinor = true
+		elseif (arg[i] == buildFlags.useDevBranch) then
+			buildArgs.useDevBranch = true
 		end
 	end
 
@@ -231,7 +235,8 @@ local changeDir = ("cd %s/Solar2DSimulator"):format(buildArgs.path)
 -- build the projects
 if (buildArgs.build) then
 	-- pull the latest changes
-	buildCommand = ("cd %s && git fetch && git pull"):format(buildArgs.path)
+	local branch = buildArgs.useDevBranch and "dev" or "master"
+	buildCommand = ("cd %s && git fetch && git reset --hard origin/%s && git checkout %s"):format(buildArgs.path, branch, branch)
 	os.execute(buildCommand)
 
 	-- #### build car #### --
@@ -326,7 +331,8 @@ if (buildArgs.build) then
 		{file = "Solar2DBuilder"},
 		{file = "install.sh"},
 		{file = "start.sh"},
-		{file = "Resources", isDirectory = true}
+		{file = "../wx/lib/webkit2_extu-3.1.3.so"},
+		{file = "Resources", isDirectory = true},
 	}
 	-- remove the release directory
 	os.execute(("%s && rm -rf Solar2DTux"):format(changeDir))
